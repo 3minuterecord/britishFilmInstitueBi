@@ -115,8 +115,6 @@ years <- data.frame(
 
 #year <- '2008'
 for (year in years$yrs[2:length(years$yrs)]){
- print(year) 
-}  
   files <- list.files(paste0('data/raw/', year, '/'), full.names = T)
   
   if (years$typ[years$yrs == year] == 1){
