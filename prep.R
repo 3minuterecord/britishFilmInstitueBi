@@ -77,28 +77,48 @@ for (year in downloads$year){
 # Now clean up the files and combine...
 # +---------------------------------------------------------------------------+
 
-files <- list.files('data/raw/', full.names = T)
+year <- '2019-2021'
+files <- list.files(paste0('data/raw/', year, '/'), full.names = T)
 
-i = 1
-fn <- files[i]
-
-df <- readxl::read_xls(fn, sheet = 1, trim_ws = T)
-df <- df[, 1:10] 
-
-df <- df %>% na.omit()
-bfn <- gsub('.xls', '', basename(fn))
-fn_date <- as.Date(substr(bfn, nchar(bfn)-12, nchar(bfn)-3))+2
-names(df) <- gsub('%', 'percent', gsub(' ', '_', tolower(df[1, ])))
-df$weekend_sunday <- fn_date
-df <- df[-1, ]
-df$percent_change_on_last_week <- as.numeric(df$percent_change_on_last_week)
-
-num_fields <- c('rank', 'weeks_on_release', 'number_of_cinemas', 'site_average', 'total_gross_to_date')
-
-for (field in num_fields){
-  ind <- which(names(df) == field)
-  col <- data.frame(lapply(df[, ind], function(x) as.integer(x)))  
-  df[, ind] <- col
+df_all <- data.frame()
+for (fn in files){
+  fn_num <- which(fn == files)
+  print(paste0('Processing file ', fn_num, ' of ', length(files)))
+  print(paste0('File ref.: ', basename(fn)))
+  df <- readxl::read_xls(fn, sheet = 1, trim_ws = T)
+  df <- df[, 1:10] 
+  
+  # remove any columns that are all NA
+  df <- Filter(function(x) !all(is.na(x)), df)
+  
+  # Remove rows that contain NAs.
+  # TODO --- check if this is too aggressive.
+  df <- df %>% na.omit()
+  
+  bfn <- gsub('.xls', '', basename(fn))
+  fn_date <- as.Date(substr(bfn, nchar(bfn)-12, nchar(bfn)-3))+2
+  names(df) <- gsub('%', 'percent', gsub(' ', '_', tolower(df[1, ])))
+  df$weekend_sunday <- fn_date
+  df <- df[-1, ]
+  
+  if ('percent_change_on_last_week' %in% names(df)){
+    df$percent_change_on_last_week <- as.numeric(df$percent_change_on_last_week)  
+  } else {
+    df$percent_change_on_last_week <- NA
+  }
+  
+  num_fields <- c('rank', 'weeks_on_release', 'number_of_cinemas', 'site_average', 'total_gross_to_date')
+  
+  for (field in num_fields){
+    ind <- which(names(df) == field)
+    col <- data.frame(lapply(df[, ind], function(x) as.integer(x)))  
+    df[, ind] <- col
+  }
+  
+  df <- df %>% arrange(rank)
+  df_all <- rbind(df_all, df)
 }
 
-df <- df %>% arrange(rank)
+df_all <- df_all %>% arrange(weekend_sunday)
+write.csv(df_all, 'data/weekendbf.csv', row.names = F)
+
